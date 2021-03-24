@@ -1,0 +1,4 @@
+[submodule "vowel-demo"]
+	path = vowel-demo
+	url = https://github.com/Naturseptime/vowel-demo
+	branch = main
