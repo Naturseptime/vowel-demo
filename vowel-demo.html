@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Webaudio Formant Demo</title>
+<script>
+
+
+var vowelFormants = {
+	"a": [1000, 1400],
+	"e": [390, 2300],
+	"i": [240, 2400],
+	"o": [360, 640],
+	"ɔ": [500, 700],
+	"u": [250, 595],
+	"ɛ": [610, 1900],
+	"ə": [500, 1500],
+
+	"ɶ": [820, 1530],
+	"œ": [585, 1710],
+	"ø": [370, 1900],
+	"y": [235, 2100],
+
+	"ɑ": [800, 1100],
+	"ɒ": [700, 760],
+
+	"ʌ": [600, 1170],
+	"ɤ": [460, 1310],
+	"ɯ": [300, 1390]
+};
+
+var frequency = 100;
+var formantFrequencies = [1000, 1400, 3500, 7000];
+var formantAmplitudes = [0.5, 0.3, 0.1, 0.05];
+var formantResonance = [10, 10, 10, 10];
+var vibFrequencies = [7, 4.3, 1.7, 0.87, 0.43, 0.21];
+var vibAmounts = [5, 6, 7, 8, 9, 10];
+
+var formantFilters = [], formantGains = [];
+var vibOscillators = [], vibGains = [];
+var envelopeGain, osc = [];
+
+function initialize()
+{
+	var context = new AudioContext();
+
+	envelopeGain = context.createGain();
+	envelopeGain.gain.value = 0;
+
+	osc[0] = context.createOscillator();
+	osc[0].type = 'sawtooth';
+	osc[0].frequency.value = frequency;
+	osc[0].start();
+
+	for(var i = 0; i < vibFrequencies.length; ++i)
+	{
+		vibGains[i] = context.createGain();
+		vibGains[i].gain.value = vibAmounts[i];
+
+		vibOscillators[i] = context.createOscillator();
+		vibOscillators[i].type = 'sine';
+		vibOscillators[i].frequency.value = vibFrequencies[i];
+		vibOscillators[i].start();
+		vibOscillators[i].connect(vibGains[i]);
+
+		vibGains[i].connect(osc[i % osc.length].detune);
+	}
+
+	for(var i = 0; i < formantFrequencies.length; ++i)
+	{
+		formantGains[i] = context.createGain();
+		formantGains[i].gain.value = formantAmplitudes[i];
+
+		formantFilters[i] = context.createBiquadFilter();
+		formantFilters[i].type = "bandpass";
+		formantFilters[i].Q.value = formantResonance[i];
+		formantFilters[i].frequency.value = formantFrequencies[i];
+		for(var j = 0; j < osc.length; ++j)
+			osc[j].connect(formantFilters[i]);
+		formantFilters[i].connect(formantGains[i]);
+		formantGains[i].connect(envelopeGain);
+	}
+	envelopeGain.connect(context.destination);
+
+	updateUI();
+}
+
+function updateFilters() {
+	for(var i = 0; i < formantFrequencies.length; ++i)
+		formantFilters[i].frequency.setTargetAtTime(formantFrequencies[i], 0, 0);
+    osc[0].frequency.value = frequency;
+}
+
+function updateStatus() {
+	var text = "Base frequency = " + frequency + " Hz";
+	for(var i = 0; i < formantFrequencies.length; ++i)
+		text += " ; F" + (i + 1) + " = " + formantFrequencies[i] + " Hz";
+	document.getElementById("status").innerText = text;
+}
+
+function updateUI() {
+	for(var i = 0; i < formantFrequencies.length; ++i)
+		document.getElementById("formant" + (i + 1) + "_slider").value = formantFrequencies[i];
+	document.getElementById("frequency_slider").value = frequency;
+	updateStatus();
+}
+
+function sliderChanged() {
+	for(var i = 0; i < formantFrequencies.length; ++i)
+		formantFrequencies[i] = parseFloat(document.getElementById("formant" + (i + 1) + "_slider").value);
+	frequency =  parseFloat(document.getElementById("frequency_slider").value);
+	updateFilters();
+	updateStatus();
+}
+
+
+
+function buttonClicked(vowel) {
+	freqs = vowelFormants[vowel];
+	if(freqs == null) return;
+	formantFrequencies[0] = freqs[0];
+	formantFrequencies[1] = freqs[1];
+
+	updateFilters();
+	updateUI();
+	playClicked();
+}
+
+
+var timeout;
+
+function playClicked() {
+	envelopeGain.gain.setTargetAtTime(1, 0, 0.1);
+	if(timeout) {clearTimeout(timeout); timeout = null;}
+	timeout = setTimeout(function() {envelopeGain.gain.setTargetAtTime(0, 0, 0.1);}, 1000);
+}
+
+</script>
+</head>
+
+<body onload="initialize()">
+
+<p>
+	This demo shows howto generate different vowels with subtractive synthesis.<br>
+	Author: <a href="https://github.com/Naturseptime">Tamás Korodi</a></em>
+</p>
+
+<form>
+	<b>General:</b>
+	<p>
+		<label for="frequency">Base frequency</label>
+		<input type="range" min="5" max="5000" id="frequency_slider" oninput="sliderChanged()"  style="width: 30em">
+	</p>
+
+	<b>Main formants:</b>
+	<p>
+			<label for="formant1_slider">F1</label>
+			<input type="range" min="200" max="3500" id="formant1_slider" oninput="sliderChanged()" style="width: 30em">
+	</p>
+	<p>
+		<label for="formant2_slider">F2</label>
+		<input type="range" min="200" max="3500" id="formant2_slider" oninput="sliderChanged()"  style="width: 30em">
+	</p>
+
+	<b>Further formants:</b>
+	<p>
+		<label for="formant3_slider">F3</label>
+		<input type="range" min="200" max="10000" id="formant3_slider" oninput="sliderChanged()"  style="width: 30em">
+	</p>
+	<p>
+		<label for="formant4_slider">F4</label>
+		<input type="range" min="200" max="10000" id="formant4_slider" oninput="sliderChanged()"  style="width: 30em">
+	</p>
+
+	<p id="status"></p>
+	<table>
+		<tr>
+			<td><button type="button" onclick="buttonClicked('a')">a</button></td>
+			<td><button type="button" onclick="buttonClicked('ɶ')">ɶ</button></td>
+			<td rowspan="4"><button type="button" onclick="buttonClicked('ə')">ə</button>
+			<td><button type="button" onclick="buttonClicked('ɑ')">ɑ</button></td>
+			<td><button type="button" onclick="buttonClicked('ɒ')">ɒ</button></td>
+		</tr>
+		<tr>
+			<td><button type="button" onclick="buttonClicked('ɛ')">ɛ</button></td>
+			<td><button type="button" onclick="buttonClicked('œ')">œ</button></td>
+			<td><button type="button" onclick="buttonClicked('ʌ')">ʌ</button></td>
+			<td><button type="button" onclick="buttonClicked('ɔ')">ɔ</button></td>
+		</tr>
+		<tr>
+			<td><button type="button" onclick="buttonClicked('e')">e</button></td>
+			<td><button type="button" onclick="buttonClicked('ø')">ø</button></td>
+			<td><button type="button" onclick="buttonClicked('ɤ')">ɤ</button></td>
+			<td><button type="button" onclick="buttonClicked('o')">o</button></td>
+		</tr>
+		<tr>
+			<td><button type="button" onclick="buttonClicked('i')">i</button></td>
+			<td><button type="button" onclick="buttonClicked('y')">y</button></td>
+			<td><button type="button" onclick="buttonClicked('ɯ')">ɯ</button></td>
+			<td><button type="button" onclick="buttonClicked('u')">u</button></td>
+		</tr>
+	</p>
+
+		<button type="button" onclick="playClicked()">Play</button>
+</form>
+</body>
+</html>
