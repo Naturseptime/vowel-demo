@@ -40,9 +40,11 @@ var formantFilters = [], formantGains = [];
 var vibOscillators = [], vibGains = [];
 var envelopeGain, osc = [];
 
+var context;
+
 function initialize()
 {
-	var context = new AudioContext();
+	context = new AudioContext();
 
 	envelopeGain = context.createGain();
 	envelopeGain.gain.value = 0;
@@ -130,6 +132,7 @@ function buttonClicked(vowel) {
 var timeout;
 
 function playClicked() {
+	context.resume();
 	envelopeGain.gain.setTargetAtTime(1, 0, 0.1);
 	if(timeout) {clearTimeout(timeout); timeout = null;}
 	timeout = setTimeout(function() {envelopeGain.gain.setTargetAtTime(0, 0, 0.1);}, 1000);
